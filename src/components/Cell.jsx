@@ -1,11 +1,11 @@
 
 import './Cell.css'
 
-function Cell({ clueNumber, isBlack, onClick }) {
+function Cell({ clueNumber, isBlack, isActive, isHighlighted, onClick }) {
 
   return (
     <>
-      <div className={`cell ${isBlack ? "black-square" : ""}`} onClick={onClick}>
+      <div className={`cell${isBlack ? " black-square" : ""}${isActive ? " active-square" : ""}${isHighlighted ? " highlighted-square" : ""}`} onClick={onClick}>
         {!isBlack && <div className="clueNumber">
           {clueNumber}
         </div>}
