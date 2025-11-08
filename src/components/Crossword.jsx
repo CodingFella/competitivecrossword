@@ -13,13 +13,14 @@ class Square {
   }
 }
 
+// Initializes grid and places letters and black squares according to gridLayout
 function initializeGrid(gridLayout, width) {
   const grid = [];
   const NO_NUMBER = "";
   let clueNumber = 1;
 
   for (let i = 0; i < gridLayout.length; i++) {
-    let square = new Square(NO_NUMBER, gridLayout[i] === ".", "", false, false);
+    let square = new Square(NO_NUMBER, gridLayout[i] === ".", gridLayout[i] === "-" ? "" : gridLayout[i], false, false);
     if ((i < width || i % 15 == 0 || grid[i - 1].isBlack || grid[i - width].isBlack) && gridLayout[i] !== ".") {
       square.number = clueNumber;
       clueNumber++;
@@ -88,8 +89,8 @@ function currentClueNumber(grid, width, height, index, isAcross) {
 
 }
 
-// movement
 
+// Moves index up if not edge or black squares connected to edge and returns final position
 function moveUp(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height) {
   if (isAcross) {
     isAcross = false;
@@ -103,7 +104,7 @@ function moveUp(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, he
     }
     while (grid[scout].isBlack) {
       if (scout / width < 1) {
-        return;
+        return index;
       }
       scout -= width;
     }
@@ -113,8 +114,10 @@ function moveUp(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, he
   setGrid(prevGrid =>
     select(prevGrid, width, height, index, isAcross)
   );
+  return index;
 }
 
+// Moves index right if not edge or black squares connected to edge and returns final position
 function moveRight(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height) {
   if (!isAcross) {
     isAcross = true;
@@ -140,6 +143,7 @@ function moveRight(isAcross, setIsAcross, index, setIndex, grid, setGrid, width,
   );
 }
 
+// Moves index down if not edge or black squares connected to edge and returns final position
 function moveDown(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height) {
   if (isAcross) {
     isAcross = false;
@@ -153,7 +157,7 @@ function moveDown(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, 
     }
     while (grid[scout].isBlack) {
       if (scout >= width * (height - 1)) {
-        return;
+        return index;
       }
 
       scout += width;
@@ -165,8 +169,10 @@ function moveDown(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, 
   setGrid(prevGrid =>
     select(prevGrid, width, height, index, isAcross)
   );
+  return index;
 }
 
+// Moves index left if not edge or black squares connected to edge and returns final position
 function moveLeft(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height) {
   if (!isAcross) {
     isAcross = true;
@@ -194,7 +200,6 @@ function moveLeft(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, 
   return index;
 }
 
-
 // checks if string is length 1 and is alphanumeric
 function isAlphanumericChar(str) {
   return str.length == 1 && /^[a-zA-Z0-9]+$/.test(str);
@@ -202,12 +207,19 @@ function isAlphanumericChar(str) {
 
 // handles key presses
 function handleKeyboardInput(grid, width, height, index, setIndex, isAcross, setIsAcross, setGrid, event) {
-  if (event.key === "Backspace") {
+  if (event.key === "Tab") {
+    event.preventDefault();
+
+  }
+  else if (event.key === "Backspace") {
     if (grid[index].storedLetter != "") {
       grid[index].storedLetter = "";
     }
-    else {
+    else if (isAcross && index % width != 0 && !grid[index - 1].isBlack) {
       grid[moveLeft(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height)].storedLetter = "";
+    }
+    else if (!isAcross && Math.floor(index / width) != 0 && !grid[index - width].isBlack) {
+      grid[moveUp(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height)].storedLetter = "";
     }
   }
   else if (event.key === "ArrowUp") {
@@ -227,26 +239,30 @@ function handleKeyboardInput(grid, width, height, index, setIndex, isAcross, set
     moveLeft(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height);
   }
   else if (event.key === " ") {
-    // Use the functional update form for isAcross
+    event.preventDefault();
     setIsAcross(prevIsAcross => {
       const newDirection = !prevIsAcross;
 
-      // Now, update the grid using the correct new direction
       setGrid(prevGrid =>
         select(prevGrid, width, height, index, newDirection)
       );
 
-      return newDirection; // Return the new state value for React to update isAcross
+      return newDirection;
     });
-
-
   }
   else if (isAlphanumericChar(event.key)) {
     grid[index].storedLetter = event.key.toUpperCase();
 
+    // horizontal typing
     if (isAcross) {
       if (index < width * height && !grid[index + 1].isBlack) {
         moveRight(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height);
+      }
+    }
+    // vertical typing
+    else {
+      if (index < width * (height - 1) && !grid[index + width].isBlack) {
+        moveDown(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height);
       }
     }
   }
@@ -255,23 +271,128 @@ function handleKeyboardInput(grid, width, height, index, setIndex, isAcross, set
   return newGrid;
 }
 
-function Crossword({ dimensions, gridLayout }) {
+// Saves current progress. Key is userId-puzzleId
+const saveUserProgress = async (userId, puzzleId, currentGridState) => {
+  const formData = new URLSearchParams();
+  formData.append('user_id', userId);
+  formData.append('puzzle_id', puzzleId);
+  formData.append('grid_state', currentGridState);
+
+  try {
+    const response = await fetch('http://localhost:8000/save_progress.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData.toString(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (result.success) {
+      console.log('Progress saved:', result.message);
+    } else {
+      console.error('Save failed on server:', result.message);
+    }
+
+  } catch (error) {
+    console.error('Error saving progress:', error);
+  }
+};
+
+// Loads current progress
+const loadUserProgress = async (userId, puzzleId) => {
+  const baseUrl = 'http://localhost:8000/load_progress.php';
+  const url = `${baseUrl}?user_id=${userId}&puzzle_id=${puzzleId}`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET'
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    // The response is expected to be JSON: { success: true, grid_state: "C_A_T..." }
+    const result = await response.json();
+
+    if (result.success) {
+      if (result.grid_state) {
+        console.log('Progress loaded successfully.');
+        return result.grid_state;
+      } else {
+        console.log('Progress loaded, but no saved state found.');
+        return null;
+      }
+    } else {
+      console.error('Load failed on server:', result.message);
+      return null;
+    }
+
+  } catch (error) {
+    console.error('Error loading progress:', error);
+    return null;
+  }
+};
+
+function Crossword() {
+  const [isInitialized, setIsInitialized] = useState(false);
   const [grid, setGrid] = useState([])
   const [isAcross, setIsAcross] = useState(true);
   const [index, setIndex] = useState(0);
 
-  // Initialization
-  useEffect(() => {
-    const isGridLayoutEmpty = Object.keys(gridLayout).length === 0;
 
-    if (isGridLayoutEmpty || !dimensions.width) {
-      // Data is not ready yet, so we exit early.
+  const userId = 123;
+  const puzzleId = 456;
+
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
+
+
+
+  // Get progress
+  useEffect(() => {
+    const fetchProgress = async () => {
+      const puzzleResponse = await fetch("http://localhost:8000/test.php");
+      const data = await puzzleResponse.json();
+
+      const { grid, width, height } = data;
+
+      setDimensions({ width, height });
+
+      const savedState = await loadUserProgress(userId, puzzleId);
+      if (savedState) {
+        // Load saved state
+        const initialGrid = initializeGrid(savedState, width);
+        setGrid(select(initialGrid, width, height, 0, true, setIsAcross));
+        setIndex(0);
+        setIsAcross(true);
+      } else {
+        // No saved state, make blank grid
+        const initialGrid = initializeGrid(grid, width);
+        setGrid(select(initialGrid, width, height, 0, true, setIsAcross));
+        setIndex(0);
+        setIsAcross(true);
+      }
+      setIsInitialized(true);
+    };
+
+    fetchProgress();
+  }, [userId, puzzleId]);
+
+
+  // Save progress
+  useEffect(() => {
+    if (!isInitialized) {
       return;
     }
-
-    const initialGrid = initializeGrid(gridLayout, dimensions.width);
-    setGrid(select(initialGrid, dimensions.width, dimensions.height, 0, true, setIsAcross));
-  }, [gridLayout, dimensions.width]);
+    const gridStateString = grid.map(square => square.storedLetter === "" ? "-" : square.storedLetter).join('');
+    saveUserProgress(userId, puzzleId, gridStateString);
+  }, [grid]);
 
 
   function handleCellClick(idx) {

@@ -16,3 +16,11 @@ php -S localhost:8000
 npm install
 npm run dev
 ```
+
+## MySQL database
+
+```console
+brew services start mysql
+mysql -u crossword_user -p crossword_app_db
+```
+

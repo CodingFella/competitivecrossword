@@ -1,5 +1,5 @@
-
 <?php
+
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json");
 
@@ -18,7 +18,7 @@ $bodyOffset = 0x34;
 $solution = substr($data, $bodyOffset, $width * $height);
 
 $bodyOffset += $width * $height;
-$userProgress = substr($data, $bodyOffset, $width * $height);
+$grid = substr($data, $bodyOffset, $width * $height);
 
 $bodyOffset += $width * $height;
 $cluesRaw = substr($data, $bodyOffset);
@@ -31,7 +31,8 @@ $puzzle = [
     'height' => $height,
     'numClues' => $numClues,
     'clues' => $clues,
-    'solution' => $solution
+    'solution' => $solution,
+    'grid' => $grid
 ];
 
 echo json_encode($puzzle);
