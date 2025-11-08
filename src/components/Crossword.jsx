@@ -88,21 +88,145 @@ function currentClueNumber(grid, width, height, index, isAcross) {
 
 }
 
+// movement
+
+function moveUp(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height) {
+  if (isAcross) {
+    isAcross = false;
+    setIsAcross(isAcross);
+  }
+  else {
+    let scout = index;
+    scout -= width;
+    if (scout < 0) {
+      scout += width;
+    }
+    while (grid[scout].isBlack) {
+      if (scout / width < 1) {
+        return;
+      }
+      scout -= width;
+    }
+    index = scout;
+    setIndex(index);
+  }
+  setGrid(prevGrid =>
+    select(prevGrid, width, height, index, isAcross)
+  );
+}
+
+function moveRight(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height) {
+  if (!isAcross) {
+    isAcross = true;
+    setIsAcross(isAcross);
+  }
+  else {
+    let scout = index;
+    scout++;
+    if (scout % width == 0) {
+      scout--;
+    }
+    while (grid[scout].isBlack) {
+      if (scout % width == 0) {
+        return;
+      }
+      scout++;
+    }
+    index = scout;
+    setIndex(index);
+  }
+  setGrid(prevGrid =>
+    select(prevGrid, width, height, index, isAcross)
+  );
+}
+
+function moveDown(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height) {
+  if (isAcross) {
+    isAcross = false;
+    setIsAcross(isAcross);
+  }
+  else {
+    let scout = index;
+    scout += width;
+    if (scout >= width * height) {
+      scout -= width;
+    }
+    while (grid[scout].isBlack) {
+      if (scout >= width * (height - 1)) {
+        return;
+      }
+
+      scout += width;
+
+    }
+    index = scout;
+    setIndex(index);
+  }
+  setGrid(prevGrid =>
+    select(prevGrid, width, height, index, isAcross)
+  );
+}
+
+function moveLeft(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height) {
+  if (!isAcross) {
+    isAcross = true;
+    setIsAcross(isAcross);
+  }
+  else {
+    let scout = index;
+    scout--;
+    if ((scout + width) % width == width - 1) {
+      scout++;
+    }
+    while (grid[scout].isBlack) {
+      if (scout % width == 0) {
+        return index;
+      }
+      scout--;
+    }
+    index = scout;
+    setIndex(index);
+  }
+  setGrid(prevGrid =>
+    select(prevGrid, width, height, index, isAcross)
+  );
+
+  return index;
+}
+
+
 // checks if string is length 1 and is alphanumeric
 function isAlphanumericChar(str) {
   return str.length == 1 && /^[a-zA-Z0-9]+$/.test(str);
 }
 
 // handles key presses
-function handleKeyboardInput(grid, width, height, index, isAcross, setIsAcross, setGrid, event) {
+function handleKeyboardInput(grid, width, height, index, setIndex, isAcross, setIsAcross, setGrid, event) {
   if (event.key === "Backspace") {
-    grid[index].storedLetter = "";
+    if (grid[index].storedLetter != "") {
+      grid[index].storedLetter = "";
+    }
+    else {
+      grid[moveLeft(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height)].storedLetter = "";
+    }
   }
-  else if (event.key === "Tab") {
-
+  else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    moveUp(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height);
+  }
+  else if (event.key === "ArrowRight") {
+    event.preventDefault();
+    moveRight(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height);
+  }
+  else if (event.key === "ArrowDown") {
+    event.preventDefault();
+    moveDown(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height);
+  }
+  else if (event.key === "ArrowLeft") {
+    event.preventDefault();
+    moveLeft(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height);
   }
   else if (event.key === " ") {
-    console.log("space");
     // Use the functional update form for isAcross
     setIsAcross(prevIsAcross => {
       const newDirection = !prevIsAcross;
@@ -119,6 +243,12 @@ function handleKeyboardInput(grid, width, height, index, isAcross, setIsAcross, 
   }
   else if (isAlphanumericChar(event.key)) {
     grid[index].storedLetter = event.key.toUpperCase();
+
+    if (isAcross) {
+      if (index < width * height && !grid[index + 1].isBlack) {
+        moveRight(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height);
+      }
+    }
   }
 
   const newGrid = Array.from(grid);
@@ -130,6 +260,7 @@ function Crossword({ dimensions, gridLayout }) {
   const [isAcross, setIsAcross] = useState(true);
   const [index, setIndex] = useState(0);
 
+  // Initialization
   useEffect(() => {
     const isGridLayoutEmpty = Object.keys(gridLayout).length === 0;
 
@@ -139,11 +270,7 @@ function Crossword({ dimensions, gridLayout }) {
     }
 
     const initialGrid = initializeGrid(gridLayout, dimensions.width);
-    setGrid(initialGrid);
-
-    setGrid(select(initialGrid, dimensions.width, dimensions.height, 0, isAcross, setIsAcross));
-    setIndex(0);
-
+    setGrid(select(initialGrid, dimensions.width, dimensions.height, 0, true, setIsAcross));
   }, [gridLayout, dimensions.width]);
 
 
@@ -160,10 +287,10 @@ function Crossword({ dimensions, gridLayout }) {
     setGrid(prevGrid => select(prevGrid, dimensions.width, dimensions.height, newIndex, nextIsAcross, setIsAcross));
   }
 
-  const handleGlobalKeyDown = useCallback((event) => {
+  const handleGlobalKeyDown = ((event) => {
     setGrid(prevGrid => handleKeyboardInput(
-      prevGrid, dimensions.width, dimensions.height, index, isAcross, setIsAcross, setGrid, event));
-  }, [index])
+      prevGrid, dimensions.width, dimensions.height, index, setIndex, isAcross, setIsAcross, setGrid, event));
+  });
 
   useEffect(() => {
     document.addEventListener('keydown', handleGlobalKeyDown);
