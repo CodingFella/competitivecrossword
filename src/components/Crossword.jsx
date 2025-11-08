@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 import Cell from './Cell'
 import './Crossword.css'
@@ -41,24 +41,16 @@ function resetGrid(grid) {
 }
 
 // logic for when user clicks on a cell
-function select(grid, width, height, index, isAcross, setIsAcross) {
+function select(grid, width, height, index, isAcross) {
   if (grid[index].isBlack) {
     return grid;
   }
-
-  let nextIsAcross = isAcross;
-
-  if (grid[index].isActive) {
-    nextIsAcross = !isAcross;
-    setIsAcross(nextIsAcross);
-  }
-
 
   grid = resetGrid(grid);
   grid[index].isActive = true;
 
   // set row to isHighlighted to true
-  if (nextIsAcross) {
+  if (isAcross) {
     let i = index;
     while (i == index || i >= 0 && (i % width) != width - 1 && !grid[i].isBlack) {
       grid[i].isHighlighted = true;
@@ -92,22 +84,94 @@ function select(grid, width, height, index, isAcross, setIsAcross) {
 }
 
 // get the current clue number associated with selected position
-function currentClueNumber(grid, index, isAcross) {
+function currentClueNumber(grid, width, height, index, isAcross) {
 
+}
+
+// checks if string is length 1 and is alphanumeric
+function isAlphanumericChar(str) {
+  return str.length == 1 && /^[a-zA-Z0-9]+$/.test(str);
+}
+
+// handles key presses
+function handleKeyboardInput(grid, width, height, index, isAcross, setIsAcross, setGrid, event) {
+  if (event.key === "Backspace") {
+    grid[index].storedLetter = "";
+  }
+  else if (event.key === "Tab") {
+
+  }
+  else if (event.key === " ") {
+    console.log("space");
+    // Use the functional update form for isAcross
+    setIsAcross(prevIsAcross => {
+      const newDirection = !prevIsAcross;
+
+      // Now, update the grid using the correct new direction
+      setGrid(prevGrid =>
+        select(prevGrid, width, height, index, newDirection)
+      );
+
+      return newDirection; // Return the new state value for React to update isAcross
+    });
+
+
+  }
+  else if (isAlphanumericChar(event.key)) {
+    grid[index].storedLetter = event.key.toUpperCase();
+  }
+
+  const newGrid = Array.from(grid);
+  return newGrid;
 }
 
 function Crossword({ dimensions, gridLayout }) {
   const [grid, setGrid] = useState([])
-  const [isAcross, setIsAcross] = useState(false);
+  const [isAcross, setIsAcross] = useState(true);
+  const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    setGrid(initializeGrid(gridLayout, dimensions.width));
+    const isGridLayoutEmpty = Object.keys(gridLayout).length === 0;
+
+    if (isGridLayoutEmpty || !dimensions.width) {
+      // Data is not ready yet, so we exit early.
+      return;
+    }
+
+    const initialGrid = initializeGrid(gridLayout, dimensions.width);
+    setGrid(initialGrid);
+
+    setGrid(select(initialGrid, dimensions.width, dimensions.height, 0, isAcross, setIsAcross));
+    setIndex(0);
+
   }, [gridLayout, dimensions.width]);
 
 
-  function handleCellClick(index) {
-    setGrid(prevGrid => select(prevGrid, dimensions.width, dimensions.height, index, isAcross, setIsAcross));
+  function handleCellClick(idx) {
+    let newIndex = idx;
+    setIndex(newIndex);
+
+    let nextIsAcross = isAcross;
+    if (grid[newIndex].isActive) {
+      nextIsAcross = !isAcross;
+      setIsAcross(nextIsAcross);
+    }
+
+    setGrid(prevGrid => select(prevGrid, dimensions.width, dimensions.height, newIndex, nextIsAcross, setIsAcross));
   }
+
+  const handleGlobalKeyDown = useCallback((event) => {
+    setGrid(prevGrid => handleKeyboardInput(
+      prevGrid, dimensions.width, dimensions.height, index, isAcross, setIsAcross, setGrid, event));
+  }, [index])
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleGlobalKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, [handleGlobalKeyDown]);
 
   return (
     <>
@@ -116,6 +180,7 @@ function Crossword({ dimensions, gridLayout }) {
           <Cell
             key={idx}
             clueNumber={cell.number}
+            storedLetter={cell.storedLetter}
             isBlack={cell.isBlack}
             isActive={cell.isActive}
             isHighlighted={cell.isHighlighted}
