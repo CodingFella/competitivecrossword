@@ -200,6 +200,41 @@ function moveLeft(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, 
   return index;
 }
 
+// tabbing logic
+function moveNextAvailable(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height) {
+  let newIndex = index;
+  let newIsAcross = isAcross;
+  let size = width * height;
+  let checked = 0;
+
+  if (isAcross) {
+    // Go to next word
+    newIndex = (newIndex + 1) % size;
+    while (!grid[newIndex].isBlack && newIndex % width != 0) {
+      console.log(newIndex);
+      newIndex = (newIndex + 1) % size;
+      if (newIndex < index) {
+        newIsAcross = false;
+        setIsAcross(newIsAcross);
+      }
+    }
+    while (grid[newIndex].isBlack || grid[newIndex].storedLetter != "") {
+      newIndex = (newIndex + 1) % size;
+      if (newIndex < index) {
+        newIsAcross = false;
+        setIsAcross(newIsAcross);
+      }
+    }
+    index = newIndex;
+    setIndex(newIndex);
+    setGrid(prevGrid =>
+      select(prevGrid, width, height, newIndex, newIsAcross)
+    );
+  }
+  else {
+  }
+}
+
 // checks if string is length 1 and is alphanumeric
 function isAlphanumericChar(str) {
   return str.length == 1 && /^[a-zA-Z0-9]+$/.test(str);
@@ -209,6 +244,7 @@ function isAlphanumericChar(str) {
 function handleKeyboardInput(grid, width, height, index, setIndex, isAcross, setIsAcross, setGrid, event) {
   if (event.key === "Tab") {
     event.preventDefault();
+    moveNextAvailable(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height);
 
   }
   else if (event.key === "Backspace") {
@@ -240,12 +276,14 @@ function handleKeyboardInput(grid, width, height, index, setIndex, isAcross, set
   }
   else if (event.key === " ") {
     event.preventDefault();
+    console.log("space")
     setIsAcross(prevIsAcross => {
       const newDirection = !prevIsAcross;
 
       setGrid(prevGrid =>
         select(prevGrid, width, height, index, newDirection)
       );
+      console.log("space set")
 
       return newDirection;
     });
@@ -255,7 +293,7 @@ function handleKeyboardInput(grid, width, height, index, setIndex, isAcross, set
 
     // horizontal typing
     if (isAcross) {
-      if (index < width * height && !grid[index + 1].isBlack) {
+      if (index < width * height - 1 && !grid[index + 1].isBlack) {
         moveRight(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height);
       }
     }
@@ -396,6 +434,10 @@ function Crossword() {
 
 
   function handleCellClick(idx) {
+    if (grid[idx].isBlack) {
+      return;
+    }
+
     let newIndex = idx;
     setIndex(newIndex);
 
@@ -432,7 +474,7 @@ function Crossword() {
             isBlack={cell.isBlack}
             isActive={cell.isActive}
             isHighlighted={cell.isHighlighted}
-            onClick={() => handleCellClick(idx)}
+            onMouseDown={() => handleCellClick(idx)}
           />
         ))}
       </div>
