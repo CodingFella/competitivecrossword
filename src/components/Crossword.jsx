@@ -200,6 +200,56 @@ function moveLeft(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, 
   return index;
 }
 
+
+function updateGridAndIndex(isAcross, newIndex, setIndex, setGrid, width, height) {
+  setIndex(newIndex);
+  setGrid(prevGrid =>
+    select(prevGrid, width, height, newIndex, isAcross)
+  );
+}
+
+// within the word, it will go down the word and then loop back to the front until it finds an empty spot
+// returns the new index
+function moveNextBlank(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height) {
+  // go 'down' the word
+
+  let newIndex = index;
+
+  while ((newIndex + 1) % width != 0 && !grid[newIndex + 1].isBlack) {
+    newIndex++;
+    if (grid[newIndex].storedLetter == "") {
+      index = newIndex;
+      updateGridAndIndex(isAcross, newIndex, setIndex, setGrid, width, height);
+      return;
+    }
+  }
+
+  // go up word if no blanks
+
+  while (((newIndex - 1) + width) % width != width - 1 && !grid[newIndex - 1].isBlack) {
+    newIndex--;
+  }
+
+  // go back down again!
+  while ((newIndex + 1) % width != 0 && !grid[newIndex + 1].isBlack) {
+    if (grid[newIndex].storedLetter == "") {
+      index = newIndex;
+      updateGridAndIndex(isAcross, newIndex, setIndex, setGrid, width, height);
+      return;
+    }
+
+    if (index == newIndex) {
+      moveRight(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height);
+      return;
+    }
+    newIndex++;
+  }
+
+
+  index = newIndex;
+  updateGridAndIndex(isAcross, newIndex, setIndex, setGrid, width, height);
+}
+
 // tabbing logic
 function moveNextAvailable(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height) {
   let newIndex = index;
@@ -211,7 +261,6 @@ function moveNextAvailable(isAcross, setIsAcross, index, setIndex, grid, setGrid
     // Go to next word
     newIndex = (newIndex + 1) % size;
     while (!grid[newIndex].isBlack && newIndex % width != 0) {
-      console.log(newIndex);
       newIndex = (newIndex + 1) % size;
       if (newIndex < index) {
         newIsAcross = false;
@@ -225,6 +274,8 @@ function moveNextAvailable(isAcross, setIsAcross, index, setIndex, grid, setGrid
         setIsAcross(newIsAcross);
       }
     }
+
+    // set index and update grid
     index = newIndex;
     setIndex(newIndex);
     setGrid(prevGrid =>
@@ -232,6 +283,23 @@ function moveNextAvailable(isAcross, setIsAcross, index, setIndex, grid, setGrid
     );
   }
   else {
+    // go to beginning of current word
+    while (newIndex >= width && !grid[newIndex - width].isBlack) {
+      newIndex -= width;
+    }
+
+    // traverse right until next word
+    newIndex = (newIndex + 1) % size;
+    while ((newIndex > width - 1 && !grid[newIndex - width].isBlack) || grid[newIndex].isBlack) {
+      newIndex = (newIndex + 1) % size;
+    }
+
+    // set index and update grid
+    index = newIndex;
+    setIndex(newIndex);
+    setGrid(prevGrid =>
+      select(prevGrid, width, height, newIndex, newIsAcross)
+    );
   }
 }
 
@@ -276,7 +344,6 @@ function handleKeyboardInput(grid, width, height, index, setIndex, isAcross, set
   }
   else if (event.key === " ") {
     event.preventDefault();
-    console.log("space")
     setIsAcross(prevIsAcross => {
       const newDirection = !prevIsAcross;
 
@@ -293,9 +360,7 @@ function handleKeyboardInput(grid, width, height, index, setIndex, isAcross, set
 
     // horizontal typing
     if (isAcross) {
-      if (index < width * height - 1 && !grid[index + 1].isBlack) {
-        moveRight(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height);
-      }
+      moveNextBlank(isAcross, setIsAcross, index, setIndex, grid, setGrid, width, height);
     }
     // vertical typing
     else {
